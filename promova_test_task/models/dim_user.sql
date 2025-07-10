@@ -1,4 +1,4 @@
 {{ config(materialized='table') }}
 
-SELECT user_id
+SELECT GENERATE_UUID() as user_sk, user_id
 FROM {{ref("events_raw")}}
