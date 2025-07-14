@@ -1,27 +1,18 @@
 {{ config(materialized='table') }}
 
-WITH subscriptions_per_user AS (
-  SELECT
-    user_id,
-    COUNT(*) AS subscriptions
-  FROM {{ ref("dim_subscription") }}
-  GROUP BY user_id
+
+with unique_event_users as (
+    select user_id from {{ ref("events_raw") }}
+    qualify row_number() over (partition by user_id order by event_time desc) = 1
 ),
-
-devices_per_user AS (
-  SELECT
-    user_id,
-    COUNT(*) AS devices
-  FROM {{ ref("dim_device") }}
-  GROUP BY user_id
+unique_transasction_users as (
+    select user_id from {{ ref("transactions_raw") }}
+    qualify row_number() over (partition by user_id order by transaction_time desc) = 1
+),
+all_users as (
+    select user_id from unique_event_users
+    union distinct
+    select user_id from unique_transasction_users
 )
-
-SELECT
-  GENERATE_UUID() AS user_sk,
-  tr.user_id,
-  COALESCE(s.subscriptions, 0) AS subscriptions,
-  COALESCE(d.devices, 0) AS devices
-FROM {{ ref("transactions_raw") }} tr
-LEFT JOIN subscriptions_per_user s ON tr.user_id = s.user_id
-LEFT JOIN devices_per_user d ON tr.user_id = d.user_id
-GROUP BY tr.user_id, s.subscriptions, d.devices
+select GENERATE_UUID() AS user_sk, user_id,
+from all_users
