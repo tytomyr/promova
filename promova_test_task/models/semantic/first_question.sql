@@ -13,16 +13,16 @@ with users_with_subscriptions as (
     select user_id, count(distinct subscription_id) as sub_count
     from {{ ref("transactions_raw") }}
     group by user_id
-    having count(distinct subscription_id) = 1
+    having count(distinct subscription_id) > 1
 ),
 
 calculated_users as (
-    select user_id, count(distinct device_id) as device
+    select device_id, count(distinct user_id) as user
     from {{ ref("fact_user_activity") }}
     where event_type = 'login'
     and user_id in (select user_id from users_with_subscriptions)
-    group by user_id
-    having count(distinct device_id) > 1
+    group by device_id
+    having count(distinct user_id) > 1
 )
 
 select(
