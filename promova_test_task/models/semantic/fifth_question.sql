@@ -14,15 +14,14 @@ with users_with_subscriptions as (
     group by user_id
 ),
 
-counted_registered_users as (
+users_with_purchase as (
     select count(distinct user_id)
-    from {{ ref("fact_user_activity") }}
-    where user_id is not null
+    from {{ ref("transactions_raw") }}
 )
 
 
 select(
     (select sum(sub_count) from users_with_subscriptions)
     /
-    (select * from counted_registered_users)
+    (select * from users_with_purchase)
 ) as sub_per_user

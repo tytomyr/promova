@@ -9,29 +9,34 @@
 -- Assumption: дублючі аккаунти - user_id is null
 
 
-with counted_duplicates_ver1 as (
-            select fu.device_id, count(distinct fu.user_id) as duplicates
+with users_counts as (
+            select fu.device_id, count(distinct fu.user_id) as users
             from {{ ref("fact_user_activity") }} fu
+            where user_id is not null
             group by fu.device_id
-            having duplicates > 1
 ),
 
-counted_duplicates_ver2 as (
-            select count(distinct device_id) as duplicates
-            from {{ ref("fact_user_activity") }} fu
-            where user_id is null
-            group by user_id
+device_count as (
+            select device_id
+            from users_counts
+            where users > 1
 ),
 
-distinct_users as (
+unique_users as (
+  select distinct user_id
+  from {{ ref('fact_user_activity') }}
+  where device_id in (select device_id from device_count)
+),
+
+total_users as (
             select count(distinct user_id) as all_users
             from {{ ref("fact_user_activity") }}
             where user_id is not null
 )
 
 select(
-            (select * from counted_duplicates_ver2)
+            (select count(*) from unique_users)
             /
-            (select * from distinct_users) * 100
+            (select count( distinct user_id) from {{ ref("fact_user_activity") }} where user_id is not null) * 100
 ) as duplicates_percentage
 
